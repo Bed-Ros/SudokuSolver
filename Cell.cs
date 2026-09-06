@@ -4,7 +4,7 @@ using System.Windows;
 namespace SudokuSolver
 {
     //Клетка
-    public partial class Cell(int? value = null, bool variable = true) : ObservableObject
+    public partial class Cell(int row, int column,  int? value = null, bool variable = true) : ObservableObject
     {
         //Изменяемое ли значение
         [ObservableProperty]
@@ -21,10 +21,15 @@ namespace SudokuSolver
                 {
                     OnPropertyChanging(nameof(Value));
                     this.value = value == 0 ? null : value;
+                    IsError = false;
                     OnPropertyChanged(nameof(Value));
                 }
             }
         }
+
+        //Координаты клетки
+        public int Column { get; } = column;
+        public int Row { get; } = row;
 
         //Ошибочность значения
         [ObservableProperty]
