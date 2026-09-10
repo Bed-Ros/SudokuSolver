@@ -11,7 +11,7 @@ namespace SudokuSolver
         //Конструктор
         public Main()
         {
-            NewGame();
+            Game = new Game(NewGameHeight, NewGameWidth);
         }
 
         //Игра
@@ -31,9 +31,13 @@ namespace SudokuSolver
 
         //Создание новой игры
         [RelayCommand]
-        public void NewGame()
+        public async Task NewGame()
         {
-            Game = new Game(NewGameHeight, NewGameWidth, NewGameFillPercent);
+            await Task.Run(() =>
+            {
+                Game = new Game(NewGameHeight, NewGameWidth);
+                Game.FillGrid(NewGameFillPercent);
+            });
         }
 
         //Ручная валидация игры
@@ -43,7 +47,7 @@ namespace SudokuSolver
             Game.ValidateAllCells();
         }
 
-        //Автоматическое решение игры
+        //Пошаговое автоматическое решение игры
         [RelayCommand]
         public void SolveGame()
         {

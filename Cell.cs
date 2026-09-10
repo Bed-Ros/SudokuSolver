@@ -50,5 +50,16 @@ namespace SudokuSolver
                 OnPropertyChanged(nameof(BorderThickness));
             }
         }
+
+        //Возможные значения для клетки
+        [ObservableProperty]
+        public partial HashSet<int> PossibleValues { get; set; } = [];
+
+        //Возвращаем клетку в начальное состояние
+        public void Reset()
+        {
+            Variable = true;
+            Value = null;
+        }
     }
 }

@@ -15,6 +15,9 @@
     <Window.DataContext>
         <local:Main />
     </Window.DataContext>
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
@@ -54,19 +57,18 @@
                     <Button Command="{Binding NewGameCommand}" Content="Создать" />
                 </StackPanel>
             </GroupBox>
-            <StackPanel Orientation="Horizontal">
-                <Button
-                    Margin="0"
-                    VerticalAlignment="Center"
-                    Command="{Binding ValidateGameCommand}"
-                    Content="Проверить" />
-                <CheckBox
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    IsChecked="{Binding Game.AutoValidate}"
-                    Content="Auto" />
-            </StackPanel>
+            <GroupBox Header="Проверка">
+                <StackPanel Orientation="Vertical">
+                    <CheckBox Content="Автоматически" IsChecked="{Binding Game.AutoValidate}" />
+                    <Button Command="{Binding ValidateGameCommand}" Content="Проверить" />
+                </StackPanel>
+            </GroupBox>
             <Button Command="{Binding SolveGameCommand}" Content="Решить" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Foreground="Red"
+                Text="Судоку решена!"
+                Visibility="{Binding Game.IsSolved, Converter={StaticResource BooleanToVisibilityConverter}}" />
         </StackPanel>
         <!--  Игра  -->
         <local:GameView Grid.Column="1" DataContext="{Binding Game}" />

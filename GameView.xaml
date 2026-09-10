@@ -9,12 +9,23 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <TextBlock
+            HorizontalAlignment="Center"
+            Text="{Binding SolvingMessage}"
+            Visibility="{Binding IsSolving, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        <ScrollViewer
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Auto"
+            VerticalScrollBarVisibility="Auto">
             <!--  Внешний граница игрового поля  -->
             <Border
                 HorizontalAlignment="Center"
@@ -75,7 +86,7 @@
             </Border>
         </ScrollViewer>
         <!--  Кнопки выбора  -->
-        <Grid Grid.Row="1" HorizontalAlignment="Center">
+        <Grid Grid.Row="2" HorizontalAlignment="Center">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition />
