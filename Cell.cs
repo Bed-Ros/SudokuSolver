@@ -17,11 +17,16 @@ namespace SudokuSolver
             get => value;
             set
             {
+                //Если значение переменное и отличается от текущего
                 if (Variable && this.value != value)
                 {
                     OnPropertyChanging(nameof(Value));
+                    //Ставим значение. Воспринимаем 0 как null
                     this.value = value == 0 ? null : value;
+                    //Скидываем ошибку
                     IsError = false;
+                    //Очищаем возможные значения
+                    PossibleValues.Clear();
                     OnPropertyChanged(nameof(Value));
                 }
             }

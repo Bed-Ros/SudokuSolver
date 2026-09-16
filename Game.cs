@@ -38,6 +38,10 @@ namespace SudokuSolver
         [ObservableProperty]
         public partial bool AutoValidate { get; set; } = false;
 
+        //Автоматическое удаление возможных значений у связанных клеток
+        [ObservableProperty]
+        public partial bool AutoRemovePosibleValues { get; set; } = false;
+
         //Происходит ли сейчас решение
         [ObservableProperty]
         public partial bool IsSolving { get; set; } = false;
@@ -56,6 +60,9 @@ namespace SudokuSolver
 
         //Очередь клеток для проверки
         Queue<Cell> SolvingQueueToCheck = [];
+
+        //История сетки для решения
+        Stack<List<Cell>> SolvingHistory = new();
 
         //Индекс следующего шага решения
         int NextSolvingStep = 0;
@@ -227,12 +234,22 @@ namespace SudokuSolver
         //Событие изменения значения клетки
         private void Cell_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (sender is Cell cell &&
-                e.PropertyName == nameof(Cell.Value))
+            if (sender is not Cell cell || e.PropertyName != nameof(Cell.Value))
+                return;
+            if (AutoValidate)
+                ValidateRelatedCells(cell);
+            if (AutoRemovePosibleValues)
+                RemovePosibleValuesFromRelatedCells(cell);
+            OnPropertyChanged(nameof(IsSolved));
+        }
+
+        //Убирает из связанных клеток возможное значение
+        void RemovePosibleValuesFromRelatedCells(Cell cell)
+        {
+            if (cell.Value == null) return;
+            foreach (var relatedCell in RelatedCells(cell))
             {
-                if (AutoValidate)
-                    ValidateRelatedCells(cell);
-                OnPropertyChanged(nameof(IsSolved));
+                relatedCell.PossibleValues.Remove((int)cell.Value);
             }
         }
 
@@ -358,12 +375,14 @@ namespace SudokuSolver
         //Запускает последовательность действий для решения судоку
         public void Solve()
         {
-            if (!IsSolving)
-                IsSolving = true;
             //План: Поочередно проверяем все клетки на наличие единственного возможного значения и заполняем их
             switch (NextSolvingStep)
             {
                 case 0:
+                    //Включаем автоматическую валидацию и автоматическое убирание возможных значений
+                    IsSolving = true;
+                    AutoValidate = true;
+                    AutoRemovePosibleValues = true;
                     //Убираем ошибочные значения, если имеются
                     SolvingMessage = "Убираем ошибочные значения, если имеются";
                     ValidateAllCells();
@@ -372,12 +391,14 @@ namespace SudokuSolver
                     NextSolvingStep++;
                     break;
                 case 1:
-                    //Находим для всех пустых клеток их возможные значения
+                    //Находим для всех клеток их возможные значения
                     SolvingMessage = "Находим возможные значения для пустых клеток";
                     Parallel.ForEach(Cells, cell =>
                     {
                         if (cell.Value == null)
                             cell.PossibleValues = [.. CellPossibleValues(cell.Row, cell.Column)];
+                        else
+                            cell.PossibleValues.Clear();
                     });
                     //Создаем очередь из пустых клеток для проверки
                     SolvingQueueToCheck = new Queue<Cell>(Cells.Where(x => x.Value == null));
@@ -391,24 +412,37 @@ namespace SudokuSolver
                         NextSolvingStep++;
                         break;
                     }
-                    //Берем клетки из очереди пока не найдем клетку с пустым значением или пока не закончатся клетки в очереди
-                    Cell? cell = null;
-                    while ( SolvingQueueToCheck.TryDequeue(out var c))
+                    //Если в очереди нет клеток
+                    if (SolvingQueueToCheck.Count == 0)
                     {
-                        if (c != null && c.Value == null)
+                        SolvingMessage = "Не осталось клеток с единственным возможным значением. " +
+                            "Запоминаем текущее состояние сетки чтобы вернутся к нему в случае неудачи. " +
+                            "Выберем первое попавшееся значение для клетки с наименьшим количеством возможных значений";
+                        //Находим клетку и выбираем ее
+                        var curCell = Cells.Where(x => x.PossibleValues.Count > 0).MinBy(x => x.PossibleValues.Count);
+                        SelectCell(curCell);
+                        //Убираем первое попавшееся возможное значение у клетки
+                        var value = curCell.PossibleValues.First();
+                        curCell.PossibleValues.Remove(value);
+                        //Сохраняем текущее состояние пустых клеток в истории
+                        List<Cell> list = [];
+                        foreach (var c in Cells.Where(x=>x.Value == null))
                         {
-                            cell = c;
-                            break;
+                            list.Add(new(c.Row, c.Column) { PossibleValues = [.. c.PossibleValues] });
                         }
-                    }
-                    //Если в очереди нет клеток, то пишем результат и переходим к следующему шагу
-                    if (cell == null)
-                    {
-                        SolvingMessage = "Не удалось решить Судоку";
-                        NextSolvingStep++;
+                        SolvingHistory.Push(list);
+                        //Ставим выбранное значение
+                        curCell.Value = value;
+                        //Добавляем связанные незаполненные клетки в очередь, если ее нет в очереди
+                        foreach (var relatedCell in RelatedCells(curCell).Where(c => c.Value == null))
+                        {
+                            if (!SolvingQueueToCheck.Contains(relatedCell))
+                                SolvingQueueToCheck.Enqueue(relatedCell);
+                        }
                         break;
                     }
-                    //Показываем пользователю текущую клетку
+                    //Берем и показываем пользователю текущую клетку
+                    var cell = SolvingQueueToCheck.Dequeue();
                     SelectCell(cell);
                     //Если для клетки найдено только одно возможное значение
                     if (cell.PossibleValues.Count == 1)
@@ -416,20 +450,64 @@ namespace SudokuSolver
                         SolvingMessage = "Вводим единственное возможное значение для выбранной клетки и переходим к следующей";
                         //Заполняем клетку этим значением
                         cell.Value = cell.PossibleValues.First();
-                        //Убираем это значение из возможных значений для связанных клеток и добавляем эту клетку в очередь 
+                        //Добавляем связанные незаполненные клетки в очередь, если ее нет в очереди
                         foreach (var relatedCell in RelatedCells(cell).Where(c => c.Value == null))
                         {
-                            relatedCell.PossibleValues.Remove(cell.Value.Value);
-                            SolvingQueueToCheck.Enqueue(relatedCell);
+                            if (!SolvingQueueToCheck.Contains(relatedCell))
+                                SolvingQueueToCheck.Enqueue(relatedCell);
                         }
                     }
                     //Если для клетки не найдено возможных значений, то Судоку не имеет решения
                     else if (cell.PossibleValues.Count == 0)
                     {
-                        SolvingMessage = "Для данной клетки нет возможных значений. Судоку не имеет решения";
-                        NextSolvingStep++;
+                        //Если в истории есть записи, то восстанавливаем предыдущее состояние сетки
+                        if (SolvingHistory.Count > 0)
+                        {
+                            SolvingMessage = "Для данной клетки нет возможных значений. Возвращаемся к запомненному состоянию сетки до этого";
+                            var list = SolvingHistory.Pop();
+                            foreach (var c in list)
+                            {
+                                var index = Index(c.Row, c.Column);
+                                Cells[index].Value = null;
+                                Cells[index].PossibleValues = c.PossibleValues;
+                            }
+                            SolvingQueueToCheck.Clear();
+                            break;
+                        }
+                        //Иначе судоку не имеет решения
+                        else
+                        {
+                            SolvingMessage = "Для данной клетки нет возможных значений. Судоку не имеет решения";
+                            NextSolvingStep++;
+                        }
                     }
+                    //Если данная клетка единственная из связанных у которой есть определнное значение в возможных значениях, то заполняем её этим значением
                     else
+                    {
+                        var blockRelatedCells = RelatedBlockCells(cell);
+                        var rowRelatedCells = RelatedRowCells(cell);
+                        var columnRelatedCells = RelatedColumnCells(cell);
+                        foreach (var value in cell.PossibleValues)
+                        {
+                            if (blockRelatedCells.All(c => !c.PossibleValues.Contains(value)) ||
+                                rowRelatedCells.All(c => !c.PossibleValues.Contains(value)) ||
+                                columnRelatedCells.All(c => !c.PossibleValues.Contains(value)))
+                            {
+                                SolvingMessage = "Вводим значение в выбранную клетку, которое невозможно ввести в другие связанные клетки и переходим к следующей";
+                                //Заполняем клетку этим значением
+                                cell.Value = value;
+                                //Добавляем связанные незаполненные клетки в очередь, если ее нет в очереди
+                                foreach (var relatedCell in RelatedCells(cell).Where(c => c.Value == null))
+                                {
+                                    if (!SolvingQueueToCheck.Contains(relatedCell))
+                                        SolvingQueueToCheck.Enqueue(relatedCell);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    //Иначе неизвестно, какое значение выбрать
+                    if (cell.Value == null)
                         SolvingMessage = "Выбранная клетка имеет несколько возможных значений. Переходим к следующей";
                     break;
                 default:
@@ -443,33 +521,41 @@ namespace SudokuSolver
         //Получить связанные клетки
         public IEnumerable<Cell> RelatedCells(Cell cell)
         {
-            //Собираем информауию о блоке
-            var blockStartRow = BlockStartRow(cell.Row);
-            var blockEndRow = BlockEndRow(cell.Row);
-            var blockStartCol = BlockStartCol(cell.Column);
-            var blockEndCol = BlockEndCol(cell.Column);
-            //Блок
-            for (int row = blockStartRow; row < blockEndRow; row++)
+            return RelatedBlockCells(cell).Concat(RelatedRowCells(cell)).Concat(RelatedColumnCells(cell)).Distinct();
+
+        }
+
+        //Получить связанные клетки блока
+        public IEnumerable<Cell> RelatedBlockCells(Cell cell)
+        {
+            for (int row = BlockStartRow(cell.Row); row < BlockEndRow(cell.Row); row++)
             {
-                for (int col = blockStartCol; col < blockEndCol; col++)
+                for (int col = BlockStartCol(cell.Column); col < BlockEndCol(cell.Column); col++)
                 {
                     if (row != cell.Row || col != cell.Column)
                         yield return Cells[Index(row, col)];
                 }
             }
-            //Строка
+        }
+
+        //Получить связанные клетки строки
+        public IEnumerable<Cell> RelatedRowCells(Cell cell)
+        {
             for (int row = 0; row < TotalDiameter; row++)
             {
-                if (row < blockStartRow || row >= blockEndRow)
+                if (row != cell.Row)
                     yield return Cells[Index(row, cell.Column)];
             }
-            //Столбец
+        }
+
+        //Получить связанные клетки столбца
+        public IEnumerable<Cell> RelatedColumnCells(Cell cell)
+        {
             for (int col = 0; col < TotalDiameter; col++)
             {
-                if (col < blockStartCol || col >= blockEndCol)
+                if (col != cell.Column)
                     yield return Cells[Index(cell.Row, col)];
             }
-
         }
 
         //Валидация всех клеток
