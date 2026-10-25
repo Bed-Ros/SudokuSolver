@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
 using System.Windows;
 
 namespace SudokuSolver
@@ -58,7 +59,7 @@ namespace SudokuSolver
 
         //Возможные значения для клетки
         [ObservableProperty]
-        public partial HashSet<int> PossibleValues { get; set; } = [];
+        public partial ObservableCollection<int> PossibleValues { get; set; } = [];
 
         //Возвращаем клетку в начальное состояние
         public void Reset()

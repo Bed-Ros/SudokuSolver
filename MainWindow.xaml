@@ -55,6 +55,7 @@
                         Minimum="1"
                         Value="{Binding NewGameFillPercent}" />
                     <Button Command="{Binding NewGameCommand}" Content="Создать" />
+                    <Button Command="{Binding ClearCommand}" Content="Очистить" />
                 </StackPanel>
             </GroupBox>
             <GroupBox Header="Проверка">
@@ -63,7 +64,12 @@
                     <Button Command="{Binding ValidateGameCommand}" Content="Проверить" />
                 </StackPanel>
             </GroupBox>
-            <Button Command="{Binding SolveGameCommand}" Content="Решить" />
+            <GroupBox Header="Решение">
+                <StackPanel Orientation="Vertical">
+                    <Button Command="{Binding SolveGameCommand}" Content="Решить" />
+                    <Button Command="{Binding FullSolveGameCommand}" Content="Решить полностью" />
+                </StackPanel>
+            </GroupBox>
             <TextBlock
                 HorizontalAlignment="Center"
                 Foreground="Red"

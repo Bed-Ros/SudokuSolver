@@ -107,7 +107,7 @@ namespace SudokuSolver
                 if (value != null)
                     possibleValues.Remove(value.Value);
             }
-            // Убираем значения из блока
+            //Убираем значения из блока
             for (int r = BlockStartRow(row); r < BlockEndRow(row); r++)
             {
                 for (int c = BlockStartCol(col); c < BlockEndCol(col); c++)
@@ -372,6 +372,86 @@ namespace SudokuSolver
             }
         }
 
+        //Убирает значения из возможных значений по следующему принципу:
+        //Если в блоке значение X возможно только в определенной строке(столбце),
+        //то значение X не может быть в этой строке(столбце) за пределами данного блока
+        void AdjustPosibleValues()
+        {
+            bool repeat = false;
+            //Повторяем пока происходят изменения
+            while (repeat)
+            {
+                //Для каждого блока
+                for (int blockRow = 0; blockRow < BlockRowsCount; blockRow++)
+                {
+                    for (int blockColumn = 0; blockColumn < BlockColumnsCount; blockColumn++)
+                    {
+                        //Берем все неразмещенные значения в блоке
+                        var possibleValues = new HashSet<int>(PossibleValues);
+                        for (int row = 0; row < BlockHeight; row++)
+                        {
+                            for (int column = 0; column < BlockWidth; column++)
+                            {
+                                var cell = Cells[Index(blockRow * BlockHeight + row, blockColumn * BlockWidth + column)];
+                                if (cell.Value != null)
+                                    possibleValues.Remove((int)cell.Value);
+                            }
+                        }
+                        //Для каждого неразмещенного значения 
+                        foreach (var value in possibleValues)
+                        {
+                            //Находим строки, в которых возможно это значение
+                            HashSet<int> rows = [];
+                            for (int row = 0; row < BlockHeight; row++)
+                            {
+                                for (int column = 0; column < BlockWidth; column++)
+                                {
+                                    var cell = Cells[Index(blockRow * BlockHeight + row, blockColumn * BlockWidth + column)];
+                                    if (cell.PossibleValues.Contains(value))
+                                    {
+                                        rows.Add(blockRow * BlockHeight + row);
+                                        break;
+                                    }
+                                }
+                            }
+                            //Если значение возможно только в одной строке блока, то убираем это значение из возможных из этой строки за пределами блока
+                            if (rows.Count == 1)
+                                for (int column = 0; column < TotalDiameter; column++)
+                                {
+                                    if (blockColumn * BlockWidth <= column && column < (blockColumn + 1) * BlockWidth) continue;
+                                    var cell = Cells[Index(blockRow * BlockHeight + rows.First(), column)];
+                                    cell.PossibleValues.Remove(value);
+                                    repeat = true;
+                                }
+                            //Находим столбцы, в которых возможно это значение
+                            HashSet<int> columns = [];
+                            for (int column = 0; column < BlockWidth; column++)
+                            {
+                                for (int row = 0; row < BlockHeight; row++)
+                                {
+                                    var cell = Cells[Index(blockRow * BlockHeight + row, blockColumn * BlockWidth + column)];
+                                    if (cell.PossibleValues.Contains(value))
+                                    {
+                                        columns.Add(blockColumn * BlockWidth + column);
+                                        break;
+                                    }
+                                }
+                            }
+                            //Если значение возможно только в одном столбце блока, то убираем это значение из возможных из этого столбца за пределами блока
+                            if (columns.Count == 1)
+                                for (int row = 0; row < TotalDiameter; row++)
+                                {
+                                    if (blockRow * BlockHeight <= row && row < (blockRow + 1) * BlockHeight) continue;
+                                    var cell = Cells[Index(row, blockColumn * BlockWidth + columns.First())];
+                                    cell.PossibleValues.Remove(value);
+                                    repeat = true;
+                                }
+                        }
+                    }
+                }
+            }
+        }
+
         //Запускает последовательность действий для решения судоку
         public void Solve()
         {
@@ -393,13 +473,18 @@ namespace SudokuSolver
                 case 1:
                     //Находим для всех клеток их возможные значения
                     SolvingMessage = "Находим возможные значения для пустых клеток";
-                    Parallel.ForEach(Cells, cell =>
+                    //Создаем список значений, исходя из значений связанных ячеек
+                    foreach (var c in Cells)
                     {
-                        if (cell.Value == null)
-                            cell.PossibleValues = [.. CellPossibleValues(cell.Row, cell.Column)];
-                        else
-                            cell.PossibleValues.Clear();
-                    });
+                        c.PossibleValues.Clear();
+                        if (c.Value != null) continue;
+                        foreach (var item in CellPossibleValues(c.Row, c.Column))
+                        {
+                            c.PossibleValues.Add(item);
+                        }
+                    }
+                    //Убираем лишние возможные значения
+                    AdjustPosibleValues();
                     //Создаем очередь из пустых клеток для проверки
                     SolvingQueueToCheck = new Queue<Cell>(Cells.Where(x => x.Value == null));
                     NextSolvingStep++;
@@ -421,12 +506,19 @@ namespace SudokuSolver
                         //Находим клетку и выбираем ее
                         var curCell = Cells.Where(x => x.PossibleValues.Count > 0).MinBy(x => x.PossibleValues.Count);
                         SelectCell(curCell);
+                        //Проверяем что такая клетка нашлась
+                        if (curCell == null)
+                        {
+                            SolvingMessage = "Судоку не имеет решения";
+                            NextSolvingStep++;
+                            break;
+                        }
                         //Убираем первое попавшееся возможное значение у клетки
                         var value = curCell.PossibleValues.First();
                         curCell.PossibleValues.Remove(value);
                         //Сохраняем текущее состояние пустых клеток в истории
                         List<Cell> list = [];
-                        foreach (var c in Cells.Where(x=>x.Value == null))
+                        foreach (var c in Cells.Where(x => x.Value == null))
                         {
                             list.Add(new(c.Row, c.Column) { PossibleValues = [.. c.PossibleValues] });
                         }
@@ -667,7 +759,7 @@ namespace SudokuSolver
 
         //Логика выбора ячейки
         [RelayCommand]
-        private void SelectCell(Cell cell)
+        private void SelectCell(Cell? cell)
         {
             if (cell == null) return;
 

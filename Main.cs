@@ -40,6 +40,16 @@ namespace SudokuSolver
             });
         }
 
+        //Очистить поле
+        [RelayCommand]
+        public async Task Clear()
+        {
+            await Task.Run(() =>
+            {
+                Game = new Game(Game.BlockHeight, Game.BlockWidth);
+            });
+        }
+
         //Ручная валидация игры
         [RelayCommand]
         public void ValidateGame()
@@ -52,6 +62,16 @@ namespace SudokuSolver
         public void SolveGame()
         {
             Game.Solve();
+        }
+
+        //Полное решение
+        [RelayCommand]
+        public void FullSolveGame()
+        {
+            do
+            {
+                Game.Solve();
+            } while (Game.IsSolving);
         }
     }
 }

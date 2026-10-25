@@ -40,46 +40,62 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button
-                                Background="Transparent"
-                                Command="{Binding DataContext.SelectCellCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                CommandParameter="{Binding}">
-                                <!--  Сбрасываем стандартный стиль кнопки Windows, оставляя только её поведение  -->
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border
-                                            x:Name="CellBorder"
-                                            Width="40"
-                                            Height="40"
-                                            Background="{TemplateBinding Background}"
-                                            BorderBrush="Black"
-                                            BorderThickness="{Binding BorderThickness}">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                <Setter TargetName="CellBorder" Property="Background" Value="#ADD8E6" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsError}" Value="True">
-                                                <Setter TargetName="CellBorder" Property="Background" Value="Red" />
-                                            </DataTrigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                                <!--  Содержимое ячейки Судоку  -->
-                                <TextBlock FontSize="16" Text="{Binding Value}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="FontWeight" Value="Regular" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Variable}" Value="False">
-                                                    <Setter Property="FontWeight" Value="Bold" />
+                            <Grid>
+                                <!--  Возможные значения ячейки  -->
+                                <ItemsControl ItemsSource="{Binding PossibleValues, Mode=OneWay}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="{Binding DataContext.BlockWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Rows="{Binding DataContext.BlockHeight, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding .}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <!--  Значение ячейки  -->
+                                <Button
+                                    Background="Transparent"
+                                    Command="{Binding DataContext.SelectCellCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding}">
+                                    <!--  Сбрасываем стандартный стиль кнопки Windows, оставляя только её поведение  -->
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border
+                                                x:Name="CellBorder"
+                                                Width="40"
+                                                Height="40"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="Black"
+                                                BorderThickness="{Binding BorderThickness}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter TargetName="CellBorder" Property="Background" Value="#ADD8E6" />
                                                 </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Button>
+                                                <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                    <Setter TargetName="CellBorder" Property="Background" Value="Red" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <!--  Содержимое ячейки Судоку  -->
+                                    <TextBlock FontSize="16" Text="{Binding Value}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontWeight" Value="Regular" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Variable}" Value="False">
+                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+                            </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
